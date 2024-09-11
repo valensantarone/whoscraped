@@ -5,12 +5,20 @@ from .exceptions import CantGetMatchData
 import pandas as pd
 import json
 import re
+from contextlib import contextmanager
+
+@contextmanager
+def browser_context():
+    """Context manager for handling the browser lifecycle."""
+    browser = init_browser()
+    try:
+        yield browser
+    finally:
+        browser.quit()
 
 def init_browser():
     """Initialize a new browser session."""
     return webdriver.Chrome()
-
-browser = init_browser()
 
 def get_match_data(match_url):
     """Get match information from a WhoScored data centre match.
@@ -24,37 +32,32 @@ def get_match_data(match_url):
     Raises:
         CantGetMatchData: If the required data is not found in the page source.
     """
-    global browser
-    try:
-        browser.current_window_handle
-    except (NoSuchWindowException, WebDriverException):
-        browser = init_browser()
-    
-    try:
-        browser.get(match_url)
-        source = browser.page_source
-        soup = BeautifulSoup(source, 'html.parser')
-        
-        soup_str = str(soup)
-        pattern = re.compile(r'require\.config\.params\["args"\] = ({.*?});', re.DOTALL)
-        match = pattern.search(soup_str)
+    with browser_context() as browser:
+        try:
+            browser.get(match_url)
+            source = browser.page_source
+            soup = BeautifulSoup(source, 'html.parser')
+            
+            soup_str = str(soup)
+            pattern = re.compile(r'require\.config\.params\["args"\] = ({.*?});', re.DOTALL)
+            match = pattern.search(soup_str)
 
-        if match and 'matchCentreData' in match.group(1):
-            js_object = match.group(1)
-        else:
-            raise CantGetMatchData
-        
-        # Add quotes to the keys
-        object_splitted = js_object.split('\n')
-        for i in range(len(object_splitted[1:-1])):
-            key = object_splitted[i+1].replace(' ', '').split(':')[0]
-            js_object = re.sub(key, f'"{key}"', js_object)
-        
-        # Load the JSON object
-        data = json.loads(js_object)
-        return data
-    finally:
-        browser.quit()  # Ensure the browser is closed after use
+            if match and 'matchCentreData' in match.group(1):
+                js_object = match.group(1)
+            else:
+                raise CantGetMatchData("Match data not found.")
+            
+            # Add quotes to the keys
+            object_splitted = js_object.split('\n')
+            for i in range(len(object_splitted[1:-1])):
+                key = object_splitted[i+1].replace(' ', '').split(':')[0]
+                js_object = re.sub(key, f'"{key}"', js_object)
+            
+            # Load the JSON object
+            data = json.loads(js_object)
+            return data
+        except (NoSuchWindowException, WebDriverException):
+            raise CantGetMatchData("Could not access the browser window.")
 
 def get_match_passes(match_url):
     """Get all passes from both teams in a match.
