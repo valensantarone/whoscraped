@@ -11,7 +11,9 @@ setup(
     url="https://www.github.com/valensantarone/whoscraped",
     packages=find_packages(),
     install_requires=[
-        "selenium"
+        "selenium",
+        "beautifulsoup4",
+        "pandas"
     ],
     classifiers=[
         "Programming Language :: Python :: 3",
