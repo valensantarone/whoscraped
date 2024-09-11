@@ -32,6 +32,9 @@ def get_match_data(match_url):
     Raises:
         CantGetMatchData: If the required data is not found in the page source.
     """
+    if match_url.split('/')[5] != 'Live':
+        raise CantGetMatchData
+    
     with browser_context() as browser:
         try:
             browser.get(match_url)
