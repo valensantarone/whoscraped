@@ -62,16 +62,25 @@ def get_match_data(match_url):
         except (NoSuchWindowException, WebDriverException):
             raise CantGetMatchData("Could not access the browser window.")
 
-def get_match_passes(match_url):
+def get_match_passes(match_input):
     """Get all passes from both teams in a match.
 
     Args:
-        match_url (str): Full link from a WhoScored data centre match.
+        match_input (str or dict): Either a full URL from a WhoScored data centre match (str) 
+                                   or the match data in JSON format (dict).
     
     Returns:
         pd.DataFrame: DataFrame containing all pass event information.
     """
-    data = get_match_data(match_url)
+    if isinstance(match_input, str):
+        data = get_match_data(match_input)
+    elif isinstance(match_input, dict):
+        if 'matchCentreData' not in match_input:
+            raise CantGetMatchData
+        else:
+            data = match_input
+    else:
+        raise ValueError("The input must be a URL string or a JSON object.")
 
     # Collect rows in a list before creating DataFrame for performance
     rows = []
@@ -96,4 +105,45 @@ def get_match_passes(match_url):
 
     # Create DataFrame from list of rows
     df = pd.DataFrame(rows)
+    return df
+
+def get_team_stats(match_input):
+    """Get a table with both team stats from a match.
+    
+    Args:
+        match_input (str or dict): Either a full URL from a WhoScored data centre match (str) 
+                                   or the match data in JSON format (dict).
+    
+    Returns:
+        pd.DataFrame: DataFrame containing all stats from home and away team (integer stats only).
+    """
+    
+    if isinstance(match_input, str):
+        data = get_match_data(match_input)
+    elif isinstance(match_input, dict):
+        if 'matchCentreData' not in match_input:
+            raise CantGetMatchData
+        else:
+            data = match_input
+    else:
+        raise ValueError("The input must be a URL string or a JSON object.")
+    
+    def process_team_stats(team_data, skip_stats):
+        team_rows = []
+        for key, stats in team_data['stats'].items():
+            if key not in skip_stats:
+                total_stat = sum(stats.values())
+                team_rows.append({key: int(total_stat)})
+        return team_rows
+
+    skip_stats = ['minutesWithStats', 'ratings', 'possession', 'passSuccess', 'tackleSuccess', 'dribbleSuccess', 'aerialSuccess']
+
+    home_rows = process_team_stats(data['matchCentreData']['home'], skip_stats)
+    away_rows = process_team_stats(data['matchCentreData']['away'], skip_stats)
+
+    home_dict = {k: v for d in home_rows for k, v in d.items()}
+    away_dict = {k: v for d in away_rows for k, v in d.items()}
+
+    df = pd.DataFrame([home_dict, away_dict], index=['home', 'away']).fillna(0).astype(int)
+    
     return df
