@@ -108,7 +108,7 @@ def get_match_passes(match_input):
     return df
 
 def get_team_stats(match_input):
-    """Get a table with both team stats from a match.
+    """Get a table with both team stats from a match, including the final score.
     
     Args:
         match_input (str or dict): Either a full URL from a WhoScored data centre match (str) 
@@ -128,7 +128,9 @@ def get_team_stats(match_input):
     else:
         raise ValueError("The input must be a URL string or a JSON object.")
     
-    def process_team_stats(team_data, skip_stats):
+    def process_team_stats(team_data):
+        skip_stats = ['minutesWithStats', 'ratings', 'possession', 'passSuccess', 'tackleSuccess', 'dribbleSuccess', 'aerialSuccess']
+        
         team_rows = []
         for key, stats in team_data['stats'].items():
             if key not in skip_stats:
@@ -136,14 +138,20 @@ def get_team_stats(match_input):
                 team_rows.append({key: int(total_stat)})
         return team_rows
 
-    skip_stats = ['minutesWithStats', 'ratings', 'possession', 'passSuccess', 'tackleSuccess', 'dribbleSuccess', 'aerialSuccess']
-
-    home_rows = process_team_stats(data['matchCentreData']['home'], skip_stats)
-    away_rows = process_team_stats(data['matchCentreData']['away'], skip_stats)
+    home_rows = process_team_stats(data['matchCentreData']['home'])
+    away_rows = process_team_stats(data['matchCentreData']['away'])
 
     home_dict = {k: v for d in home_rows for k, v in d.items()}
     away_dict = {k: v for d in away_rows for k, v in d.items()}
 
+    # Extract the score for home and away teams
+    score_home, score_away = data['matchCentreData']['score'].split(' : ')
+    
+    # Add the score to the home and away dictionaries
+    home_dict = {'score': int(score_home), **home_dict}
+    away_dict = {'score': int(score_away), **away_dict}
+
+    # Create the DataFrame
     df = pd.DataFrame([home_dict, away_dict], index=['home', 'away']).fillna(0).astype(int)
     
     return df
