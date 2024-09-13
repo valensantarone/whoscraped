@@ -147,3 +147,49 @@ def get_team_stats(match_input):
     df = pd.DataFrame([home_dict, away_dict], index=['home', 'away']).fillna(0).astype(int)
     
     return df
+
+def get_shotmap(match_input):
+    """Get a table with all the shots of the match.
+    
+    Args:
+        match_input (str or dict): Either a full URL from a WhoScored data centre match (str) 
+                                   or the match data in JSON format (dict).
+    
+    Returns:
+        pd.DataFrame: DataFrame containing all shots information of the match.
+    """
+    
+    if isinstance(match_input, str):
+        data = get_match_data(match_input)
+    elif isinstance(match_input, dict):
+        if 'matchCentreData' not in match_input:
+            raise CantGetMatchData
+        else:
+            data = match_input
+    else:
+        raise ValueError("The input must be a URL string or a JSON object.")
+    
+    rows = []
+    for event in data['matchCentreData']['events']:
+        if 'isShot' not in event:
+            continue
+        row = {
+            'minute': event.get('minute'),
+            'second': event.get('second'),
+            'teamId': event.get('teamId'),
+            'playerId': event.get('playerId'),
+            'playerName': data['matchCentreData']['playerIdNameDictionary'][str(event.get('playerId'))],
+            'x': event.get('x'),
+            'y': event.get('y'),
+            'period': event.get('period', {}).get('displayName'),
+            'type': event.get('type', {}).get('displayName'),
+            'blockedX': event.get('blockedX'),
+            'blockedY': event.get('blockedY'),
+            'goalMouthZ': event.get('goalMouthZ'),
+            'goalMouthY': event.get('goalMouthY')
+        }
+        rows.append(row)
+
+    df = pd.DataFrame(rows)
+    
+    return df
