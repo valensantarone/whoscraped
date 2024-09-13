@@ -48,7 +48,7 @@ def get_match_data(match_url):
             if match and 'matchCentreData' in match.group(1):
                 js_object = match.group(1)
             else:
-                raise CantGetMatchData("Match data not found.")
+                raise CantGetMatchData
             
             # Add quotes to the keys
             object_splitted = js_object.split('\n')
@@ -60,7 +60,7 @@ def get_match_data(match_url):
             data = json.loads(js_object)
             return data
         except (NoSuchWindowException, WebDriverException):
-            raise CantGetMatchData("Could not access the browser window.")
+            raise CantGetMatchData
 
 def get_match_passes(match_input):
     """Get all passes from both teams in a match.
