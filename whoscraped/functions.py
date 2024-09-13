@@ -201,3 +201,55 @@ def get_shotmap(match_input):
     df = pd.DataFrame(rows)
     
     return df
+
+def get_players_stats(match_input):
+    """Get a table with all the stats of all the players in the match.
+    
+    Args:
+        match_input (str or dict): Either a full URL from a WhoScored data centre match (str) 
+                                   or the match data in JSON format (dict).
+    
+    Returns:
+        pd.DataFrame: DataFrame containing all the stats for each player of both teams.
+    """
+    
+    if isinstance(match_input, str):
+        data = get_match_data(match_input)
+    elif isinstance(match_input, dict):
+        if 'matchCentreData' not in match_input:
+            raise CantGetMatchData
+        else:
+            data = match_input
+    else:
+        raise ValueError("The input must be a URL string or a JSON object.")
+    
+    def get_team_players_stats(team):
+        team_rows = []
+        for player in data['matchCentreData'][team]['players']:
+            player_row = {
+                'playerId': player['playerId'],
+                'playerName': player['name'],
+                'teamId': data['matchCentreData'][team]['teamId'],
+                'position': player['position'],
+                'age': player['age'],
+                'shirtNo': player['shirtNo'],
+                'isMOTM': player['isManOfTheMatch'],
+            }
+            for stat_name, stat_values in player['stats'].items():
+                if 'Success' in stat_name or stat_name == 'possession':
+                    continue
+                if stat_name == 'ratings':
+                    total_stat = list(stat_values.values())[-1]
+                else:
+                    total_stat = sum(stat_values.values())
+                player_row[stat_name] = total_stat
+            team_rows.append(player_row)
+
+        df = pd.DataFrame(team_rows)
+        return df
+    
+    df_home = get_team_players_stats('home')
+    df_away = get_team_players_stats('away')
+    
+    df = pd.concat([df_home, df_away], ignore_index=True)
+    return df
